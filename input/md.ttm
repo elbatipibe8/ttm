@@ -4,4 +4,4 @@
        0         - KONF  (0-film, 1-bulk target)
   40000.000000   - WIDTH (Width of the laser pulse on a half maximum [nm])
       0.120000   - DURAT (Laser pulse duration [psec])  
-      6.58d-15        2513.274d-9   - !6.88d-12   - ENRIN (energy J)
+      6.58d-13        2513.274d-9   - !6.88d-12   - ENRIN (energy J)
