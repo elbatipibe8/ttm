@@ -1,0 +1,51 @@
+#!/bin/bash
+
+#SBATCH -A project01172
+
+#SBATCH --mail-user=ivanov@uni-kassel.de
+#SBATCH --mail-type=ALL
+#
+# Jobs Name
+#SBATCH -J ni2.x
+#
+# Number of CPUs (MPI processes)
+#SBATCH -n 384
+# Get nodes exclusively
+#SBATCH --exclusive
+#
+# Estimated run-time (mm or hh:mm)
+# PLEASE ADJUST FOR THE INTENDED MD STEPS AND SYSTEM SIZE
+#SBATCH -t 24:00:00
+#
+# Memory for the whole job, in MB
+# THIS IS NOT WHOLE JOB, BUT MEMORY PER CORE
+# THE WHOLE MEMORY IS THIS NUMBER * NUMBER OF CORES
+#SBATCH --mem-per-cpu=1600
+#
+# Standard output: stdout and stderr redirect to:
+#SBATCH -o ./%j.out
+#SBATCH -e ./%j.err
+#
+# FEATURES IN ORDER TO TARGET A SPECIFIC HARDWARE ARCHITECTURE
+#SBATCH -C avx2&multi
+# AVX for phase 1 nodes (16 cores per node)
+# MPI to exclude mem and acc nodes
+# MULTI allows for distribution over several islands resulting in a blocking interconnect
+
+
+echo "##########################################################"
+echo "Number of CPU cores:" $SLURM_NPROCS
+echo "List of machines:" $SLURM_NODELIST
+echo "Current folder:" `pwd`
+echo "##########################################################"
+echo "Job started: " `date`
+
+#module purge
+#module load gcc/4.9.4 openmpi/gcc/4.0.0 
+#module load gcc openmpi/gcc
+
+# srun --cpu_bind=verbose,cores ./Au_water.x &> log.out
+srun ./ni2.x &> log.out
+
+echo "Job finished: " `date`
+

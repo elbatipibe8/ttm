@@ -1,0 +1,88 @@
+!     THIS SUBROUTINE READS MOST OF THE INPUT FILES
+!     Leonid Zhigilei, 2000
+      SUBROUTINE ReadFiles()
+        INCLUDE 'common.h' 
+        INCLUDE 'commonTTM.h'
+        INTEGER, DIMENSION (:), ALLOCATABLE :: PUT
+ 
+!       READ INPUT DATA
+        REWIND 14
+        READ(14,100) NSTEP,MATER,NEPRT,NWRITE,NTYPE,KFLAG,LFLAG, &
+             KEYBS,KEYDEP,NDEP,LIDX,LIDY,LIDZ,KBOUND,LGOT,NDIM
+        READ(14,200) QTEM,QPRESS,AddEn,DELTA
+        
+        IF(LGOT.EQ.2) THEN 
+           REWIND 11
+           READ(11,100) NTST,LCOND,KON,KONF
+           READ(11,200) WIDTH,DURAT,ENRIN
+        ENDIF
+        
+        REWIND 15
+        READ(15,*) NN1,TIME,ZCRIT
+        READ(15,*) XL,YL,ZL
+        READ(15,*) XCENTR,YCENTR,ZCENTR
+        
+!       READ PARAMETERS FOR BOUNDARY CONDITION
+        IF(KBOUND.EQ.2) THEN 
+           REWIND 7
+           READ(7,200) FSTART,GIMPED
+        ENDIF
+        
+!       READ RANDOM NUMBERS FOR VEL SUBROUTINE
+!        CALL Random_seed(SIZE = KSEED)
+!        REWIND 13
+!        READ(13,*)(ISEED(i),i=1,KSEED)    ! for random_number(rww1)
+!        READ(13,*) U1,U2                  ! for rn()
+!        ALLOCATE(PUT(KSEED))
+!        CALL Random_seed(PUT = ISEED)
+!        DEALLOCATE(PUT)
+
+        open(unit=130,file='CDF_Au_EV_en_e1_e2_Olmon.dat')
+        do i=1,N_CDF
+           read(130,*) En_CDF_tab(i),e1_tab(i),e2_tab(i) ! ev
+           omega_CDF_tab(i)=En_CDF_tab(i)/hcross ! [1/sec]
+         enddo
+         close(130)
+      
+        !Calculation of spline coefficients
+         call spline_koef(omega_CDF_tab,e1_tab,b_e1_koef,c_e1_koef,d_e1_koef,N_CDF)
+         call spline_koef(omega_CDF_tab,e2_tab,b_e2_koef,c_e2_koef,d_e2_koef,N_CDF)
+        !********************************************************************************************************
+        
+        
+        !====================================================================================================================
+         !There are coefficients for the source term
+          
+         koeff0=omega_fix/c
+         koeff1=n1(omega_fix) 
+         koeff2=k1(omega_fix)
+         koeff3=dreal(kz_m(omega_fix)) 
+         koeff4=dimag(kz_m(omega_fix)) 
+         koeff5=dreal(kx(omega_fix))
+         koeff6=dimag(kx(omega_fix)) 
+         koeff7=dreal(CDF_m(omega_fix)) 
+         koeff8=dimag(CDF_m(omega_fix)) 
+         koeff9=koeff1*koeff1+koeff2*koeff2 ! |n|^2
+         koeff10=(1.0d0+koeff1)*(1.0d0+koeff1)+koeff2*koeff2 
+         koeff11=(8.0d0*koeff0*koeff1*koeff2)/(koeff10) 
+         koeff12=koeff0*(koeff7*koeff7+koeff8*koeff8) ! k0*|eps_m|^2
+         koeff13=koeff4+koeff0*koeff1
+         koeff14=koeff0*koeff2
+         koeff15=delta_fix*pi/180.0d0  
+
+         f1=koeff5*koeff7+koeff6*koeff8 
+         f2=koeff5*koeff8-koeff6*koeff7 
+         f7=f1*(koeff1+koeff9)-f2*koeff2 
+         f8=f2*(koeff1+koeff9)+f1*koeff2 
+         f9=-koeff7*koeff4+koeff8*koeff3 
+         f10=koeff7*koeff3+koeff8*koeff4 
+         f11=1.0d0+koeff1+(f9*(koeff1+koeff9)+f10*koeff2)/(koeff12) 
+         f12=-koeff2+(-f10*(koeff1+koeff9)+f9*koeff2)/(koeff12) 
+         f13=((koeff6*f7-koeff5*f8)/(koeff12))+(koeff3+koeff0*koeff2)*f11+(koeff4+koeff0*koeff1)*f12 
+         f14=((koeff6*f8+koeff5*f7)/(koeff12))+(koeff3+koeff0*koeff2)*f12-(koeff4+koeff0*koeff1)*f11 
+        
+100     FORMAT (I10)
+200     FORMAT (D15.5)
+
+        RETURN
+      END SUBROUTINE ReadFiles

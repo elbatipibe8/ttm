@@ -1,0 +1,175 @@
+!     Making the Energy and Force tables
+!     for Jonhson's new EAM potential
+!     Dewey Murdick and Leonid Zhigilei, 2000, 2002
+!     Number of pair potential defined here should be 
+!     Npots=Ntype*(Ntype+1)/2,  Ntype is number of particle types
+
+      SUBROUTINE EF1_EAM(KTEF,KE1,KE2)
+        INCLUDE 'common.h' 
+!       KTEF - type of the potential
+!       KE1, KE2 - elements from the list Element(N)
+!       Units: XT in Angs, UT in eV, FT in eV/Angs, mass in amu
+
+        INTEGER I
+        REAL *8 XT, DX, Rho, DRho, Rhoin, Rhoout
+        REAL *8 re, fe, Rhoe, Alpha, Beta, A, B, Kappa, Lambda
+        REAL *8 Fi0,Fi1,Fi2,Fi3,Fm0,Fm1,Fm2,Fm3,niu,Fn
+        
+        CHARACTER*2, DIMENSION(6), PARAMETER:: Element =   &
+             (/'Cu','Au','Ni','Fe','Zr','Al'/)
+        
+        REAL*8, PARAMETER:: m=20.0d0, n=20.0d0
+        REAL*8, DIMENSION(6), PARAMETER:: Tre=   &
+             (/ 2.556162d0,  2.885034d0,  2.488746d0,  2.481987d0,  3.199978d0, 2.886166d0/)
+        REAL*8, DIMENSION(6), PARAMETER:: Tfe=   &
+             (/ 1.554485d0,  1.529021d0,  2.007018d0,  1.885957d0,  2.230909d0, 1.392302d0/)
+        REAL*8, DIMENSION(6), PARAMETER:: TRhoe=   &
+             (/22.150141d0, 21.319637d0, 27.984706d0, 20.041463d0, 30.879991d0, 20.226537d0/)
+        REAL*8, DIMENSION(6), PARAMETER:: TAlpha=   &
+             (/ 7.669911d0,  8.086176d0,  8.029633d0,  9.818270d0,  8.559190d0, 6.942419d0/)
+        REAL*8, DIMENSION(6), PARAMETER:: TBeta=   &
+             (/ 4.090619d0,  4.312627d0,  4.282471d0,  5.236411d0,  4.564902d0, 3.702623d0/)
+        REAL*8, DIMENSION(6), PARAMETER:: TA=   &
+             (/ 0.327584d0,  0.230728d0,  0.439664d0,  0.392811d0,  0.424667d0, 0.251519d0/)
+        REAL*8, DIMENSION(6), PARAMETER:: TB=   &
+             (/ 0.468735d0,  0.336695d0,  0.632771d0,  0.646243d0,  0.640054d0, 0.313394d0/)
+        REAL*8, DIMENSION(6), PARAMETER:: TKappa=   &
+             (/ 0.431307d0,  0.420755d0,  0.413436d0,  0.170306d0,  0.500000d0, 0.395132d0/)
+        REAL*8, DIMENSION(6), PARAMETER:: TLambda=   &
+             (/ 0.862140d0,  0.841511d0,  0.826873d0,  0.340613d0,  1.000000d0, 0.790264d0/)
+        REAL*8, DIMENSION(6), PARAMETER:: TFi0=   &
+             (/-2.176490d0, -2.930281d0, -2.693996d0, -2.534992d0, -4.485793d0, -2.806783d0/)
+        REAL*8, DIMENSION(6), PARAMETER:: TFi1=   &
+             (/-0.140035d0, -0.554034d0, -0.066073d0, -0.059605d0, -0.293129d0, -0.276173d0/)
+        REAL*8, DIMENSION(6), PARAMETER:: TFi2=   &
+             (/ 0.285621d0,  1.489437d0,  0.170482d0,  0.193065d0,  0.990148d0, 0.893409d0/)
+        REAL*8, DIMENSION(6), PARAMETER:: TFi3=   &
+             (/-1.750834d0, -0.886809d0, -2.457442d0, -2.282322d0, -3.202516d0, -1.637201d0/)
+        REAL*8, DIMENSION(6), PARAMETER:: TFm0=   &
+             (/-2.190000d0, -2.980000d0, -2.700000d0, -2.540000d0, -4.510000d0, -2.83d0/)
+        REAL*8, DIMENSION(6), PARAMETER:: TFm1=   &
+             (/ 0.000000d0,  0.000000d0,  0.000000d0,  0.000000d0,  0.000000d0, 0.0d0/)
+        REAL*8, DIMENSION(6), PARAMETER:: TFm2=   &
+             (/ 0.702991d0,  2.283863d0,  0.282257d0,  0.200269d0,  0.928602d0, 0.9229508d0/)
+        REAL*8, DIMENSION(6), PARAMETER:: TFm3=   &
+             (/ 0.683705d0,  0.494127d0,  0.102879d0, -0.148770d0, -0.981870d0, -0.682320d0/)
+        REAL*8, DIMENSION(6), PARAMETER:: Tniu=   &
+             (/ 0.921150d0,  1.286960d0,  0.509860d0,  0.391750d0,  0.597133d0, 0.779208d0/)
+        REAL*8, DIMENSION(6), PARAMETER:: TFn=   &
+             (/-2.191675d0, -2.981365d0, -2.700493d0, -2.539945d0, -4.509025d0, -2.829437d0/)
+        
+        REAL*8, DIMENSION(6), PARAMETER:: TXmass=   &
+             (/63.6d0,  197.0d0,  58.7d0,  55.9d0, 91.2d0, 26.98d0/)
+
+        IF(mypid.eq.0) Write (17,*) 'Creating tables for ', &
+             Element(KE1),'-',Element(KE2),' EAM potential' 
+
+        IF(KE1.EQ.KE2) Then   
+!          going from the type of the potential to the type of atom
+           IF(KTEF.EQ.1) KF=1  
+           IF(KTEF.EQ.2) KF=2
+           IF(KTEF.EQ.4) KF=3
+           IF(KTEF.EQ.3.OR.KTEF.GT.4) Then
+              print *, 'The values of KTEF=',KTEF,', KE1=',KE1,', and KE2=', &
+                   KE2,' are incompatible. Program will stop.'
+              call Flushout(6)
+              STOP
+           ENDIF
+           re=Tre(KE1)
+           fe=Tfe(KE1)
+           Rhoe=TRhoe(KE1)
+           Alpha=TAlpha(KE1)
+           Beta=TBeta(KE1)
+           A=TA(KE1)
+           B=TB(KE1)
+           Kappa=TKappa(KE1)
+           Lambda=TLambda(KE1)
+           Fi0=TFi0(KE1)
+           Fi1=TFi1(KE1)
+           Fi2=TFi2(KE1)
+           Fi3=TFi3(KE1)
+           Fm0=TFm0(KE1)
+           Fm1=TFm1(KE1)
+           Fm2=TFm2(KE1)
+           Fm3=TFm3(KE1)
+           niu=Tniu(KE1)
+           Fn=TFn(KE1)
+           Rhoin=0.85d0*Rhoe
+           Rhoout=1.15d0*Rhoe
+           XMass(KF)=TXmass(KE1)! Mass of the particle in pr.unit [aem]
+           RM(KTEF) = 2.1d0*re ! Cutoff dist. for 2-body potential [A]
+           alat=SQRT(2.0d0)*re ! FCC lattice parameter (used in Liquid.f90) [A]
+
+           IF(LFLAG.EQ.2) THEN
+              RhoM(KF)=7.0d0*Rhoe ! shock wave cutoff dist. for the emb. funct.
+           ELSE
+              RhoM(KF)=3.5d0*Rhoe ! usual cutoff dist. for the emb. funct.
+           ENDIF
+
+           ! Arb max for denisty, Rho/Rhoe < 2 (so says Johnson)
+        ELSE
+           if(mypid.eq.0) Print *, 'Multicomponent EAM is not implemented yet.'
+           PRINT *,'Program will stop.' 
+           STOP
+        ENDIF
+
+!W      Uncomment these lines if you want to plot the potential
+!       IF(mypid.eq.0) OPEN (UNIT = 111,FILE='EAM.out')
+        DX=RM(KTEF)/NT
+        DRho=RhoM(KF)/NT
+        XT=0.0d0
+        Rho=0.0d0
+        DO I=1,NT
+           XT=XT+DX
+           Rho=Rho+DRho
+!          Pair Potential
+           UT(KTEF,I) = A*exp(Alpha*(1-XT/re))/(1+(XT/re-Kappa)**m)- &
+                B*exp(Beta*(1-XT/re))/(1+(XT/re-Lambda)**n)
+           FT(KTEF,I) = -((A*Exp(Alpha*(1-XT/re))* &
+                (-(Alpha*(1+(XT/re-Kappa)**m))-m*(XT/re-Kappa)**(m-1)))/ &
+                (1+(XT/re-Kappa)**m)**2 + (B*Exp(Beta*(1-XT/re))* &
+                (Beta+n*(XT/re-Lambda)**(n-1) + Beta*(XT/re-Lambda)**n))/ &
+                (1+(XT/re-Lambda)**n)**2)/re
+!          Electron density function
+           DFT(KF,I) = fe/((exp((XT/re-1)*Beta)*(1+(XT/re-Lambda)**n)))
+           DDFT(KF,I) = (exp(Beta-(XT*Beta)/re)*fe* &
+          (-(Beta*(1+(XT/re-Lambda)**n))-n*(XT/re-Lambda)**(n-1)))/ &
+          (re*(1+(XT/re-Lambda)**n)**2)
+!         Embedding energy function
+           IF(Rho.lt.Rhoin) then
+	   !fi
+              EFT(KF,I) = Fi0+Fi1*(Rho/Rhoin-1)+Fi2*(Rho/Rhoin-1)**2+ &
+                   Fi3*(Rho/Rhoin-1)**3
+              DEFT(KF,I) = (Fi1/Rhoin+(2*Fi2*(Rho/Rhoin-1))/Rhoin+ &
+                   (3*Fi3*(Rho/Rhoin-1)**2)/Rhoin)
+           else
+              IF(Rho.lt.Rhoout) then
+	         !fm
+                 EFT(KF,I) = Fm0+Fm1*(Rho/Rhoe-1)+Fm2*(Rho/Rhoe-1)**2+ &
+                      Fm3*(Rho/Rhoe-1)**3
+                 DEFT(KF,I) = (Fm1/Rhoe+(2*Fm2*(Rho/Rhoe-1))/Rhoe+ &
+                      (3*Fm3*(Rho/Rhoe-1)**2)/Rhoe)
+              else
+	         !fo
+                 EFT(KF,I)=Fn*((Rho/Rhoe)**niu)*(1-niu*Log(Rho/Rhoe))
+                 DEFT(KF,I)=-1*((Fn*niu**2*(Rho/Rhoe)**niu*Log(Rho/Rhoe))/Rho)
+              ENDIF
+           ENDIF
+!W         Uncomment this line if want to plot the potential
+!          IF(mypid.eq.0) WRITE (111,102) XT,UT(KTEF,I),FT(KTEF,I), &
+!             DFT(KF,I),DDFT(KF,I),Rho,EFT(KF,I),DEFT(KF,I)
+! 102      Format (8(1x,D10.4))
+!          Transfer to program units
+!          Electron density and its derivative is in eV/A, do not
+!          convert it into pr.un.
+           UT(KTEF,I) = UT(KTEF,I)/ENUNIT
+           FT(KTEF,I) = FT(KTEF,I)/ENUNIT
+           EFT(KF,I) = EFT(KF,I)/ENUNIT
+           DEFT(KF,I) = DEFT(KF,I)/ENUNIT
+        END DO
+
+!W      Uncomment this line if want to plot the potential
+!       CLOSE (UNIT = 111)
+
+        RETURN
+      END SUBROUTINE EF1_EAM
