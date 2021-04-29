@@ -12,8 +12,8 @@
         DELTAL  =  0.00d0   ! Left border in Angstrons
         DELTAR  =  0.5d0   ! Right border in Angstrons
 
-        NI = 1 !Initial time
-        NF = 12 !Final time
+        NI = 0.5 !Initial time
+        NF = 12.5 !Final time
 
         NP = 4 !Number of processors
 
